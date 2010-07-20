@@ -7,45 +7,69 @@ class Archive::Tar::Reader
     self.parse if parse
   end
 
-  def each(base = nil, &block)
+  def each(&block)
     @index.each do |i|
       block.call(*(@records[i]))
     end
   end
 
-  def extract(dest, preserve = false, base = nil)
-     raise "No such directory: #{dest}" unless File.directory?(dest)
+  def extract_all(dest, preserve = false)
+    raise "No such directory: #{dest}" unless File.directory?(dest)
 
-    each(base) do |header, file|
-      path = File.join(dest, header[:path])
+    each do |header, file|
+      _extract(header, file, File.join(dest, header[:path]), preserve)
+    end
+  end
 
-      case header[:type]
-      when :normal
-        File.open(path, "wb") do |io|
-          io.write file
+  def extract(source, dest, recursive = true, preserve = false)
+    raise "No such entry: #{source}" unless @records.key? source
+
+    header, file = @records[source]
+
+    if header[:type] == :directory && recursive
+      each do |header_1, file_1|
+        if header_1[:path][0, source.length] != source
+          next
         end
-      when :link
-        File.link(path, File.join(dest, header[:dest]))
-      when :symbolic
-        File.symlink(path, File.join(dest, header[:dest]))
-      when :character
-        system("mknod '#{path}' c #{header[:major]} #{header[:minor]}")
-      when :block
-        system("mknod '#{path}' b #{header[:major]} #{header[:minor]}")
-      when :directory
-        FileUtils.mkdir path
-      when :fifo
-        system("mknod '#{path}' p")
-      end
 
-      if preserve
-        File::chmod(header[:mode], path)
-        File.new(path).chown(header[:uid], header[:gid])
+        puts header_1[:path]
+        if header_1[:path].sub(source, "").empty?
+          next
+        end
+        _extract(header_1, file_1, File.join(dest, header_1[:path].sub(source, "")), preserve)
       end
+    else
+      _extract(header, file, File.join(dest, File.basename(header[:path])), preserve)
     end
   end
 
   protected
+  def _extract(header, file, path, preserve = false)
+    case header[:type]
+    when :normal
+      File.open(path, "wb") do |io|
+        io.write file
+      end
+    when :link
+      File.link(path, File.join(dest, header[:dest]))
+    when :symbolic
+      File.symlink(header[:dest], path)
+    when :character
+      system("mknod '#{path}' c #{header[:major]} #{header[:minor]}")
+    when :block
+      system("mknod '#{path}' b #{header[:major]} #{header[:minor]}")
+    when :directory
+      FileUtils.mkdir path
+    when :fifo
+      system("mknod '#{path}' p")
+    end
+
+    if preserve
+      File::chmod(header[:mode], path)
+      File.new(path).chown(header[:uid], header[:gid])
+    end
+  end
+
   def parse
     @index = []
     @records = {}
