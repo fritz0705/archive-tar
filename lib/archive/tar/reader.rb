@@ -107,6 +107,34 @@ class Archive::Tar::Reader
     end
   end
 
+  def parse(entries = 0)
+    @index = []
+    @records = {}
+    i = 1
+
+    until @file.eof? && (i > entries || entires == 0)
+      read = @file.read(512)
+      if read == "\0" * 512
+        break
+      end
+
+      header = Archive::Tar::Format.unpack_header(read)
+
+      size = header[:size]
+      blocks = size % 512 == 0 ? size / 512 : (size + (512 - size % 512)) / 512
+      content = nil
+
+      if blocks != 0
+        content = @file.read(blocks * 512)[0, size]
+      end
+
+      @index << header[:path]
+      @records[header[:path]] = header
+
+      i += 1
+    end
+  end
+
   protected
   def _extract(header, file, path, preserve = false)
     case header[:type]
@@ -131,31 +159,6 @@ class Archive::Tar::Reader
     if preserve
       File::chmod(header[:mode], path)
       File.new(path).chown(header[:uid], header[:gid])
-    end
-  end
-
-  def parse
-    @index = []
-    @records = {}
-
-    until @file.eof?
-      read = @file.read(512)
-      if read == "\0" * 512
-        break
-      end
-
-      header = Archive::Tar::Format.unpack_header(read)
-
-      size = header[:size]
-      blocks = size % 512 == 0 ? size / 512 : (size + (512 - size % 512)) / 512
-      content = nil
-
-      if blocks != 0
-        content = @file.read(blocks * 512)[0, size]
-      end
-
-      @index << header[:path]
-      @records[header[:path]] = [ header, content ]
     end
   end
 end
