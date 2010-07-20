@@ -32,5 +32,32 @@ class Archive::Tar::Format
         :minor => header[337, 8].oct,
       }
     end
+
+    def pack_header(hash)
+      if hash[:path].length > 100
+        path = hash[:path][100..-1]
+        prefix = hash[:path][0, 100]
+      else
+        path = hash[:path]
+        prefix = ""
+      end
+
+      path.ljust(100, "\0") +
+        hash[:mode].to_s(8).rjust(8, "0") +
+        hash[:uid].to_s(8).rjust(8, "0") +
+        hash[:gid].to_s(8).rjust(8, "0") +
+        hash[:size].to_s(8).rjust(8, "0") +
+        hash[:mtime].to_i.to_s(8).rjust(8, "0") +
+        hash[:cksum].to_s(8).rjust(6, "0") + "\0 " +
+        ENC_TYPES[hash[:type]] +
+        hash[:dest].ljust(100, "\0") +
+        "ustar 00" +
+        hash[:user].ljust(32, "\0") +
+        hash[:group].ljust(32, "\0") +
+        hash[:major].to_s(8).rjust(8, "0") +
+        hash[:minor].to_s(8).rjust(8, "0") +
+        prefix.ljust(155, "\0") +
+        "\0" * 12
+    end
   end
 end
