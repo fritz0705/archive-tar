@@ -3,6 +3,6 @@ module Archive
   end
 end
 
-require "archive/tar/header.rb"
+require "archive/tar/format.rb"
 require "archive/tar/reader.rb"
 require "archive/tar/writer.rb"

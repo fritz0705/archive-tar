@@ -15,7 +15,7 @@ class Archive::Tar::Format
   class << self
     def unpack_header(header)
       {
-        :name => header[345, 155].strip + header[0, 100].strip,
+        :path => header[345, 155].strip + header[0, 100].strip,
         :mode => header[100, 8].oct,
         :uid => header[108, 8].oct,
         :gid => header[116, 8].oct,
