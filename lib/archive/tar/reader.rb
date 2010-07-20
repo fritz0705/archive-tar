@@ -1,8 +1,68 @@
 require "fileutils"
 
 class Archive::Tar::Reader
-  def initialize(file, parse = true)
-    @file = file
+  def self.detect_compression_by_name(filename)
+    return :none unless filename.include? "."
+
+    case filename.slice(Range.new(filename.rindex(".") + 1, -1))
+    when "gz", "tgz"
+      return :gzip
+    when "bz2", "tbz", "tb2"
+      return :bzip2
+    when "xz", "txz"
+      return :xz
+    when "lz", "lzma", "tlz"
+      return :lzma
+    end
+
+    return :none
+  end
+
+  def self.detect_compression_by_magic(io)
+    io.rewind
+    fb = io.read(512)
+    
+    if fb[257, 5] == "ustar"
+      return :none
+    elsif fb[0, 3] == "BZh"
+      return :bzip2
+    elsif fb[0, 4] == "\x1f\x8b\x08\x08"
+      return :gzip
+    elsif fb[0, 5] == "\x5d\x00\x00\x80\x00"
+      return :lzma
+    elsif fb[0, 2] == "\xfd\x37"
+      return :xz
+    end
+
+    return :none
+  end
+
+  def initialize(file, compression = :auto, parse = true)
+    if compression == :auto && file.is_a?(File)
+      compression = Archive::Tar::Reader.detect_compression_by_name(file.path)
+    elsif compression == :auto
+      compression = Archive::Tar::Reader.detect_compression_by_magic(file)
+    end
+
+    case compression
+    when :none
+      @file = file
+    when :gzip
+      require 'zlib'
+      @file = Zlib::GzipReader.new(file)
+    when :bzip2
+      @file = IO.popen("/usr/bin/env bzip2 -d -c -f", "a+b")
+      @file.write(file.read)
+      @file.close_write
+    when :lzma
+      @file = IO.popen("/usr/bin/env lzma -d -c -f", "a+b")
+      @file.write(file.read)
+      @file.close_write
+    when :xz
+      @file = IO.popen("/usr/bin/env xz -d -c -f", "a+b")
+      @file.write(file.read)
+      @file.close_write
+    end
 
     self.parse if parse
   end
