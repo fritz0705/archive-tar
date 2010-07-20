@@ -1,3 +1,5 @@
+require "fileutils"
+
 class Archive::Tar::Reader
   def initialize(file, parse = true)
     @file = file
@@ -11,7 +13,7 @@ class Archive::Tar::Reader
     end
   end
 
-  def extract(dest, base = nil)
+  def extract(dest, preserve = false, base = nil)
      raise "No such directory: #{dest}" unless File.directory?(dest)
 
     each(base) do |header, file|
@@ -19,7 +21,7 @@ class Archive::Tar::Reader
 
       case header[:type]
       when :normal
-        File.open(path) do |io|
+        File.open(path, "wb") do |io|
           io.write file
         end
       when :link
@@ -31,9 +33,14 @@ class Archive::Tar::Reader
       when :block
         system("mknod '#{path}' b #{header[:major]} #{header[:minor]}")
       when :directory
-        File.mkdir path
+        FileUtils.mkdir path
       when :fifo
         system("mknod '#{path}' p")
+      end
+
+      if preserve
+        File::chmod(header[:mode], path)
+        File.new(path).chown(header[:uid], header[:gid])
       end
     end
   end
