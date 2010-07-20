@@ -13,6 +13,10 @@ class Archive::Tar::Reader
     end
   end
 
+  def [](name)
+    return @records[name]
+  end
+
   def extract_all(dest, preserve = false)
     raise "No such directory: #{dest}" unless File.directory?(dest)
 
