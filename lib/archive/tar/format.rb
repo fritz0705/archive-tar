@@ -31,8 +31,7 @@ class Archive::Tar::Format
         :major => header[329, 8].oct,
         :minor => header[337, 8].oct,
       }
-      result[:blocks] = result[:size] % 512 == 0 ? result[:size] / 512 :
-        (result[:size] + 512 - result[:size] % 512) / 512
+      result[:blocks] = bytes
       result
     end
 
@@ -61,6 +60,10 @@ class Archive::Tar::Format
         hash[:minor].to_s(8).rjust(8, "0") +
         prefix.ljust(155, "\0") +
         "\0" * 12
+    end
+
+    def blocks_for_bytes(bytes)
+      bytes % 512 == 0 ? bytes / 512 : (bytes + 512 - bytes % 512) / 512
     end
   end
 end
