@@ -14,7 +14,7 @@ class Archive::Tar::Format
   
   class << self
     def unpack_header(header)
-      {
+      result = {
         :path => header[345, 155].strip + header[0, 100].strip,
         :mode => header[100, 8].oct,
         :uid => header[108, 8].oct,
@@ -31,6 +31,9 @@ class Archive::Tar::Format
         :major => header[329, 8].oct,
         :minor => header[337, 8].oct,
       }
+      result[:blocks] = result[:size] % 512 == 0 ? result[:size] / 512 :
+        (result[:size] + 512 - result[:size] % 512) / 512
+      result
     end
 
     def pack_header(hash)

@@ -1,7 +1,7 @@
 require "fileutils"
 
 class Archive::Tar::Reader
-  def self.detect_compression_by_name(filename)
+  def self.detect_compression(filename)
     return :none unless filename.include? "."
 
     case filename.slice(Range.new(filename.rindex(".") + 1, -1))
@@ -18,147 +18,183 @@ class Archive::Tar::Reader
     return :none
   end
 
-  def self.detect_compression_by_magic(io)
-    io.rewind
-    fb = io.read(512)
-    
-    if fb[257, 5] == "ustar"
-      return :none
-    elsif fb[0, 3] == "BZh"
-      return :bzip2
-    elsif fb[0, 4] == "\x1f\x8b\x08\x08"
-      return :gzip
-    elsif fb[0, 5] == "\x5d\x00\x00\x80\x00"
-      return :lzma
-    elsif fb[0, 2] == "\xfd\x37"
-      return :xz
-    end
+  def initialize(file, options = {})
+    options = {
+      :compression => :auto,
+      :tmpdir => "/tmp",
+      :block_size => 2 ** 19,
+      :read_limit => 2 ** 19
+    }.merge(options)
 
-    return :none
-  end
+    options[:compression] = Archive::Tar::Reader.detect_compression(file.path) if options[:compression] == :auto
 
-  def initialize(file, compression = :auto, parse = true)
-    if compression == :auto && file.is_a?(File)
-      compression = Archive::Tar::Reader.detect_compression_by_name(file.path)
-    elsif compression == :auto
-      compression = Archive::Tar::Reader.detect_compression_by_magic(file)
-    end
-
-    case compression
+    case options[:compression]
     when :none
       @file = file
-    when :gzip
-      require 'zlib'
-      @file = Zlib::GzipReader.new(file)
     when :bzip2
-      @file = IO.popen("/usr/bin/env bzip2 -d -c -f", "a+b")
-      @file.write(file.read)
-      @file.close_write
+      @file = _tmp_file_with_pipe("/usr/bin/env bzip2 -d -c -f", file, options[:tmpdir])
+    when :gzip
+      begin
+        require 'zlib'
+        @file = Zlib::GzipReader.new(file)
+      rescue LoadError
+        @file = _tmp_file_with_pipe("/usr/bin/env gzip -d -c -f", file, options[:tmpdir])
+      end
     when :lzma
-      @file = IO.popen("/usr/bin/env lzma -d -c -f", "a+b")
-      @file.write(file.read)
-      @file.close_write
+      @file = _tmp_file_with_pipe("/usr/bin/env lzma -d -c -f", file, options[:tmpdir])
     when :xz
-      @file = IO.popen("/usr/bin/env xz -d -c -f", "a+b")
-      @file.write(file.read)
-      @file.close_write
+      @file = _tmp_file_with_pipe("/usr/bin/env xz -d -c -f", file, options[:tmpdir])
     end
 
-    self.parse if parse
+    @block_size = options[:block_size]
+    @read_limit = options[:read_limit]
+
+    write_index
+  end
+
+  def file
+    @file
   end
 
   def each(&block)
-    @index.each do |i|
-      block.call(*(@records[i]))
+    @index.each_value do |array|
+      block.call(*(array))
     end
   end
 
-  def [](name)
-    return @records[name]
-  end
+  def extract_all(dest, options = {})
+    options[:recursive] = true
 
-  def extract_all(dest, preserve = false)
-    raise "No such directory: #{dest}" unless File.directory?(dest)
+    unless File::exists? dest
+      FileUtils::mkdir_p dest
+    end
 
-    each do |header, file|
-      _extract(header, file, File.join(dest, header[:path]), preserve)
+    unless File.directory? dest
+      raise "No such directory: #{dest}"
+    end
+
+    @index.each_key do |entry|
+      if !entry.include?("/") || entry.count("/") == 1
+        extract(entry, File.join(dest, entry), options)
+      end
     end
   end
 
-  def extract(source, dest, recursive = true, preserve = false)
-    raise "No such entry: #{source}" unless @records.key? source
+  def extract(source, dest, options = {})
+    options = {
+      :recursive => true,
+      :preserve => false,
+      :override => false
+    }.merge(options)
+    unless @index.key? source
+      raise "No such file: #{source}"
+    end
 
-    header, file = @records[source]
+    header, offset = @index[source]
+    _extract(header, offset, dest, options)
 
-    if header[:type] == :directory && recursive
-      each do |header_1, file_1|
-        if header_1[:path][0, source.length] != source
-          next
+    if header[:type] == header[:directory] && options[:recursive]
+      @index.each_key do |entry|
+        if entry[0, source.length] == source && entry != source
+          extract(entry, File.join(dest, entry.sub(source, "")), options)
         end
-
-        puts header_1[:path]
-        if header_1[:path].sub(source, "").empty?
-          next
-        end
-        _extract(header_1, file_1, File.join(dest, header_1[:path].sub(source, "")), preserve)
       end
-    else
-      _extract(header, file, File.join(dest, File.basename(header[:path])), preserve)
-    end
-  end
-
-  def parse(entries = 0)
-    @index = []
-    @records = {}
-    i = 1
-
-    until @file.eof? && (i > entries || entires == 0)
-      read = @file.read(512)
-      if read == "\0" * 512
-        break
-      end
-
-      header = Archive::Tar::Format.unpack_header(read)
-
-      size = header[:size]
-      blocks = size % 512 == 0 ? size / 512 : (size + (512 - size % 512)) / 512
-      content = nil
-
-      if blocks != 0
-        content = @file.read(blocks * 512)[0, size]
-      end
-
-      @index << header[:path]
-      @records[header[:path]] = header
-
-      i += 1
     end
   end
 
   protected
-  def _extract(header, file, path, preserve = false)
-    case header[:type]
-    when :normal
-      File.open(path, "wb") do |io|
-        io.write file
+  def write_index
+    @file.rewind
+    @index = {}
+
+    until @file.eof?
+      block = @file.read(512)
+      if block == "\0" * 512
+        break
       end
-    when :link
-      File.link(path, File.join(dest, header[:dest]))
-    when :symbolic
-      File.symlink(header[:dest], path)
-    when :character
-      system("mknod '#{path}' c #{header[:major]} #{header[:minor]}")
-    when :block
-      system("mknod '#{path}' b #{header[:major]} #{header[:minor]}")
-    when :directory
-      FileUtils.mkdir path
-    when :fifo
-      system("mknod '#{path}' p")
+
+      header = Archive::Tar::Format::unpack_header(block)
+
+      @index[header[:path]] = [ header, @file.pos ]
+      @file.seek(header[:blocks] * 512, IO::SEEK_CUR)
+    end
+    @file.rewind
+  end
+
+  def _extract(header, offset, dest, options)
+    @file.seek(offset)
+
+    if !options[:override] && File::exists?(dest)
+      return
     end
 
-    if preserve
-      File::chmod(header[:mode], path)
-      File.new(path).chown(header[:uid], header[:gid])
+    case header[:type]
+    when :normal
+      io = File.new(dest, "w+b")
+      if header[:size] > @read_limit
+        i = 0
+        while i < header[:size]
+          io.write(@file.read(@block_size))
+          i += @block_size
+        end
+      else
+        io.write(@file.read(header[:size]))
+      end
+      io.close
+    when :directory
+      if !File.exists? dest
+        Dir.mkdir(dest)
+      end
+    when :symbolic
+      File.symlink(header[:dest], dest)
+    when :link
+      if header[:dest][0] == "/"
+        FileUtils.touch(header[:dest])
+      else
+        FileUtils.touch(realpath("#{dest}/../#{header[:dest]}"))
+      end
+
+      File.link(header[:dest], dest)
+    when :block
+      system("mknod '#{dest}' b #{header[:major]} #{header[:minor]}")
+    when :character
+      system("mknod '#{dest}' c #{header[:major]} #{header[:minor]}")
+    when :fifo
+      system("mknod '#{dest}' p #{header[:major]} #{header[:minor]}")
     end
+
+    if options[:preserve]
+      File.chmod(header[:mode], dest)
+      File.chown(header[:uid], header[:gid], dest)
+    end
+  end
+
+  private
+  def _tmp_file_with_pipe(command, io, tmpdir)
+    pipe = IO.popen(command, "a+b")
+    pipe.write(io.read)
+    pipe.close_write
+    file = File.new(File.join(tmpdir, rand(500512) + ".atmp"), "rb")
+    file.write(pipe.read)
+    pipe.close
+    file.close_write
+
+    return file
+  end
+
+  def realpath(string)
+    real_path = []
+    string.split("/").each do |i|
+      if i == "."
+        next
+      elsif i == ".."
+        real_path = real_path[0..-2]
+        next
+      end
+
+      real_path << i
+    end
+
+    return real_path.join("/")
   end
 end
