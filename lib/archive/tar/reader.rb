@@ -56,6 +56,10 @@ class Archive::Tar::Reader
     @file
   end
 
+  def index
+    @index
+  end
+
   def each(&block)
     @index.each_value do |array|
       block.call(*(array))
@@ -100,6 +104,25 @@ class Archive::Tar::Reader
         end
       end
     end
+  end
+
+  def [](entry)
+    @index[entry]
+  end
+
+  def has_file?(entry)
+    @index.key?(entry) || @index.key?(entry + "/")
+  end
+
+  def read(name)
+    unless @index.key? name
+      raise "No such file: #{name}"
+    end
+
+    header, offset = self[name]
+    @file.seek(offset)
+
+    @file.read(header[:size])
   end
 
   protected
