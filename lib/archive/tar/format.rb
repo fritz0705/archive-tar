@@ -31,7 +31,7 @@ class Archive::Tar::Format
         :major => header[329, 8].oct,
         :minor => header[337, 8].oct,
       }
-      result[:blocks] = bytes
+      result[:blocks] = blocks_for_bytes(result[:size])
       result
     end
 

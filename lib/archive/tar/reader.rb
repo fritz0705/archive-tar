@@ -67,8 +67,11 @@ class Archive::Tar::Reader
   end
 
   def extract_all(dest, options = {})
-    options[:recursive] = true
-
+    options = {
+      :preserve => false,
+      :override => false
+    }.merge(options)
+  
     unless File::exists? dest
       FileUtils::mkdir_p dest
     end
@@ -78,9 +81,10 @@ class Archive::Tar::Reader
     end
 
     @index.each_key do |entry|
-      if !entry.include?("/") || entry.count("/") == 1
-        extract(entry, File.join(dest, entry), options)
-      end
+      ndest = File.join(dest, entry)
+      header, offset = @index[entry]
+      
+      _extract(header, offset, ndest, options)
     end
   end
 
@@ -97,7 +101,7 @@ class Archive::Tar::Reader
     header, offset = @index[source]
     _extract(header, offset, dest, options)
 
-    if header[:type] == header[:directory] && options[:recursive]
+    if header[:type] == :directory && options[:recursive]
       @index.each_key do |entry|
         if entry[0, source.length] == source && entry != source
           extract(entry, File.join(dest, entry.sub(source, "")), options)
@@ -123,6 +127,13 @@ class Archive::Tar::Reader
     @file.seek(offset)
 
     @file.read(header[:size])
+  end
+  
+  def export_index(file)
+    @index.each do |key, value|
+      header, offset = value
+      file.write(Archive::Tar::Format::pack_header(header))
+    end
   end
 
   protected
