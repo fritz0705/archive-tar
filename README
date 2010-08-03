@@ -1,3 +1,13 @@
 == archive-tar
 
-You should document your project here.
+Archive-Tar is a library to extract and create tar archives without external
+tools.
+
+=== Extracting an tar archive
+
+    require "archive/tar"
+    file = File.new("foo.tar.gz")
+    tar_reader = Archive::Tar::Reader.new(file)
+    
+    tar_reader.extract_all("foo/")
+
