@@ -13,6 +13,61 @@ class Archive::Tar::Format
   ENC_TYPES = DEC_TYPES.invert
   
   class << self
+    def header_of_file(file, path = nil)
+      unless file.is_a? File
+        raise "No file given: #{file.class.to_s}"
+      end
+      
+      if path == nil
+        path = file.path
+      end
+      
+      header_hash = {}
+      stat = file.stat
+      
+      case stat.ftype
+      when "file"
+        header_hash[:type] = :normal
+      when "directory"
+        header_hash[:type] = :directory
+      when "characterSpecial"
+        header_hash[:type] = :character
+      when "blockSpecial"
+        header_hash[:type] = :block
+      when "fifo"
+        header_hash[:type] = :fifo
+      when "link"
+        header_hash[:type] = :link
+      end
+      
+      if stat.symlink?
+        header_hash[:type] = :symbolic
+      end
+      
+      header_hash[:path] = path
+      header_hash[:mode] = stat.mode
+      header_hash[:uid] = stat.uid
+      header_hash[:gid] = stat.gid
+      header_hash[:size] = header[:type] == :normal ? stat.size : 0
+      header_hash[:mtime] = stat.mtime
+      header_hash[:user] = ""
+      header_hash[:group] = ""
+      header_hash[:major] = 0
+      header_hash[:minor] = 0
+      header_hash[:dest] = ""
+      
+      if stat.chardev? || stat.blockdev?
+        header_hash[:major] = stat.rdev_major
+        header_hash[:minor] = stat.rdev_minor
+      elsif header_hash[:type] == :link || header_hash[:type] == :symbolic
+        header_hash[:dest] = File::readlink(file.path)
+      end
+      
+      header[:blocks] = blocks_for_bytes(header[:size])
+      
+      header_hash
+    end
+  
     def unpack_header(header)
       result = {
         path: header[345, 155].strip + header[0, 100].strip,
@@ -62,7 +117,7 @@ class Archive::Tar::Format
         prefix.ljust(155, "\0") +
         "\0" * 12
     end
-
+    
     def blocks_for_bytes(bytes)
       bytes % 512 == 0 ? bytes / 512 : (bytes + 512 - bytes % 512) / 512
     end
