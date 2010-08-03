@@ -15,26 +15,27 @@ class Archive::Tar::Format
   class << self
     def unpack_header(header)
       result = {
-        :path => header[345, 155].strip + header[0, 100].strip,
-        :mode => header[100, 8].oct,
-        :uid => header[108, 8].oct,
-        :gid => header[116, 8].oct,
-        :size => header[124, 12].oct,
-        :mtime => Time.at(header[136, 12].oct),
-        :cksum => header[148, 6].oct,
-        :type => DEC_TYPES[header[156]],
-        :dest => header[157, 100].strip,
-        :ustar => header[257, 5] == "ustar",
-        :version => header[263, 2].oct,
-        :user => header[265, 32].strip,
-        :group => header[297, 32].strip,
-        :major => header[329, 8].oct,
-        :minor => header[337, 8].oct,
+        path: header[345, 155].strip + header[0, 100].strip,
+        mode: header[100, 8].oct,
+        uid: header[108, 8].oct,
+        gid: header[116, 8].oct,
+        size: header[124, 12].oct,
+        mtime: Time.at(header[136, 12].oct),
+        cksum: header[148, 6].oct,
+        type: DEC_TYPES[header[156]],
+        dest: header[157, 100].strip,
+        ustar: header[257, 5] == "ustar",
+        version: header[263, 2].oct,
+        user: header[265, 32].strip,
+        group: header[297, 32].strip,
+        major: header[329, 8].oct,
+        minor: header[337, 8].oct,
       }
       result[:blocks] = blocks_for_bytes(result[:size])
       result
     end
 
+    ## TODO: Implement checksum calculator
     def pack_header(hash)
       if hash[:path].length > 100
         path = hash[:path][100..-1]
