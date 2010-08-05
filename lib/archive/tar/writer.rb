@@ -7,8 +7,8 @@ class Archive::Tar::Writer
     @block_size = options[:block_size]
     @file = file
   end
-
-  def add_header(header, content)
+  
+  def add_entry(header, content)
     @file.write(Archive::Tar::Format::pack_header(header))
     
     content = content[0, header[:size]]
@@ -17,6 +17,10 @@ class Archive::Tar::Writer
   end
   
   def add_file(file, path = nil)
+    unless file.is_a? File
+      file = File.new(file)
+    end
+  
     header_hash = Archive::Tar::Format::header_for_file(file, path)
     header = Archive::Tar::Format::pack_header(header_hash)
     @file.write(header)
@@ -29,6 +33,28 @@ class Archive::Tar::Writer
       end
       
       @file.write("\0" * num_of_nils)
+    end
+  end
+  
+  def add_directory(dir, full_path = false, recursive = false)
+    dir_base = dir.path + "/"
+    archive_base = full_path ? dir_base : ""
+    
+    unless dir.is_a? Dir
+      dir = Dir.open(dir)
+    end
+    
+    dir.each do |i|
+      if i == "." || i == ".."
+        next
+      end
+    
+      realpath = dir_base + i
+      real_archive_path = archive_base + i
+      
+      add_file(realpath, real_archive_path)
+      
+      add_directory(realpath, full_path) if File::Stat.new(realpath).directory? && recursive
     end
   end
 end
