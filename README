@@ -5,9 +5,21 @@ tools.
 
 === Extracting an tar archive
 
-    require "archive/tar"
+    require "archive/tar.rb"
     file = File.new("foo.tar.gz")
     tar_reader = Archive::Tar::Reader.new(file)
     
     tar_reader.extract_all("foo/")
 
+=== Creating a tar archive
+    
+    require "archive/tar.rb"
+    file = File.new("foo.tar")
+    tar_writer = Archive::Tar::Writer.new(file)
+    
+    tar_writer.add_file("foo")
+    tar_writer.add_file("bar")
+    # The second argument says, whether to use or not to use the full path
+    # The third argument says, whether to read the directory recursive
+    #   or non-recursive
+    tar_writer.add_directory("baz/", false, true)
