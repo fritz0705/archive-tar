@@ -34,18 +34,13 @@ class Archive::Tar::Reader
     when :bzip2
       @file = _tmp_file_with_pipe("/usr/bin/env bzip2 -d -c -f", file, options[:tmpdir])
     when :gzip
-      begin
-        require 'zlib'
-        @file = Zlib::GzipReader.new(file)
-      rescue LoadError
-        @file = _tmp_file_with_pipe("/usr/bin/env gzip -d -c -f", file, options[:tmpdir])
-      end
+      @file = _tmp_file_with_pipe("/usr/bin/env gzip -d -c -f", file, options[:tmpdir])
     when :lzma
       @file = _tmp_file_with_pipe("/usr/bin/env lzma -d -c -f", file, options[:tmpdir])
     when :xz
       @file = _tmp_file_with_pipe("/usr/bin/env xz -d -c -f", file, options[:tmpdir])
     end
-
+    
     @block_size = options[:block_size]
     @read_limit = options[:read_limit]
 
@@ -147,7 +142,11 @@ class Archive::Tar::Reader
         break
       end
 
-      header = Archive::Tar::Format::unpack_header(block)
+      begin
+        header = Archive::Tar::Format::unpack_header(block)
+      rescue NoMethodError
+        next
+      end
 
       @index[header[:path]] = [ header, @file.pos ]
       @file.seek(header[:blocks] * 512, IO::SEEK_CUR)
