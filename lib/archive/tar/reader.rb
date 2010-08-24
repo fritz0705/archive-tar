@@ -39,6 +39,8 @@ class Archive::Tar::Reader
       @file = _tmp_file_with_pipe("/usr/bin/env lzma -d -c -f", file, options[:tmpdir])
     when :xz
       @file = _tmp_file_with_pipe("/usr/bin/env xz -d -c -f", file, options[:tmpdir])
+    else
+      @file = file
     end
     
     @block_size = options[:block_size]
@@ -47,6 +49,7 @@ class Archive::Tar::Reader
     write_index
   end
 
+  ## Deprecated
   def file
     @file
   end
@@ -124,6 +127,7 @@ class Archive::Tar::Reader
     @file.read(header[:size])
   end
   
+  ## Deprecated
   def export_index(file)
     @index.each do |key, value|
       header, offset = value
@@ -153,7 +157,7 @@ class Archive::Tar::Reader
     end
     @file.rewind
   end
-
+  
   def _extract(header, offset, dest, options)
     @file.seek(offset)
 
