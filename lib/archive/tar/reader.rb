@@ -152,7 +152,7 @@ class Archive::Tar::Reader
         next
       end
 
-      @index[header[:path]] = [ header, @file.pos ]
+      @index[header[:path]] = [ header, @file.pos ] unless header[:type] == :pax_global_header
       @file.seek(header[:blocks] * 512, IO::SEEK_CUR)
     end
     @file.rewind

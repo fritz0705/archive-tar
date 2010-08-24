@@ -8,7 +8,8 @@ class Archive::Tar::Format
     "5" => :directory,
     "6" => :fifo,
     "7" => :reserved,
-    "I" => :index
+    "I" => :index,
+    "g" => :pax_global_header
   }
 
   ENC_TYPES = DEC_TYPES.invert
