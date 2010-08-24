@@ -71,7 +71,7 @@ class Archive::Tar::Format
   
     def unpack_header(header)
       result = {
-        path: header[345, 155].strip + header[0, 100].strip,
+        path: header[0, 100].strip,
         mode: header[100, 8].oct,
         uid: header[108, 8].oct,
         gid: header[116, 8].oct,
@@ -80,13 +80,23 @@ class Archive::Tar::Format
         cksum: header[148, 6].oct,
         type: DEC_TYPES[header[156]],
         dest: header[157, 100].strip,
-        ustar: header[257, 6] == "ustar ",
+        ustar: header[257, 6] == "ustar\0",
+        gnutar: header[257, 6] == "ustar ",
         version: header[263, 2].oct,
         user: header[265, 32].strip,
         group: header[297, 32].strip,
         major: header[329, 8].oct,
         minor: header[337, 8].oct,
+        atime: nil,
+        ctime: nil
       }
+      result[:path] = header[345, 155].strip + result[:path] if result[:ustar]
+      
+      if result[:gnutar]
+        result[:atime] = Time.at(header[345, 12].oct)
+        result[:ctime] = Time.at(header[357, 12].oct)
+      end
+      
       result[:blocks] = blocks_for_bytes(result[:size])
       result
     end
