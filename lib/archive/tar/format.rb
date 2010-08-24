@@ -80,7 +80,7 @@ class Archive::Tar::Format
         cksum: header[148, 6].oct,
         type: DEC_TYPES[header[156]],
         dest: header[157, 100].strip,
-        ustar: header[257, 5] == "ustar",
+        ustar: header[257, 6] == "ustar ",
         version: header[263, 2].oct,
         user: header[265, 32].strip,
         group: header[297, 32].strip,
@@ -89,6 +89,13 @@ class Archive::Tar::Format
       }
       result[:blocks] = blocks_for_bytes(result[:size])
       result
+    end
+    
+    def detect_type(header)
+      return :ustar if header[257, 6] == "ustar0"
+      return :gnu if header[257, 6] == "ustar "
+      
+      :old_style
     end
 
     ## TODO: Implement checksum calculator
