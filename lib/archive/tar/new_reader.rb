@@ -6,7 +6,7 @@ end
 class Archive::Tar::NewReader
   def initialize(stream, options = {})
     options = {
-      compression: auto,
+      compression: :auto,
       tmpdir: "/tmp",
       block_size: 2 ** 19,
       read_limit: 2 ** 19,
@@ -123,6 +123,8 @@ class Archive::Tar::NewReader
     
     until @stream.eof?
       raw_header = @stream.read(512)
+      break if raw_header == "\0" * 512
+      
       header = Archive::Tar::Format::unpack_header(raw_header)
       header[:path] = normalize_path(header[:path])
       
@@ -132,6 +134,8 @@ class Archive::Tar::NewReader
       
       @stream.seek(header[:blocks] * 512, IO::SEEK_CUR)
     end
+    
+    @index = new_index
   end
   
   protected
@@ -221,7 +225,7 @@ class Archive::Tar::NewReader
   end
   
   def _generate_compressed_stream(stream, compression = :auto)
-    if stream.is_a? File && compression == :auto
+    if stream.is_a?(File) && compression == :auto
       compression = _detect_compression(stream.path)
     elsif compression == :auto
       compression = :none
