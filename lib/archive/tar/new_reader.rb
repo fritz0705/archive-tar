@@ -41,7 +41,10 @@ class Archive::Tar::NewReader
   end
   
   def stat(file)
-    @index[normalize_path(file)] || raise NoSuchEntryError.new(file)
+    result = @index[normalize_path(file)]
+    raise NoSuchEntryError.new(file) if result == nil
+    
+    result
   end
   
   def [](file)
