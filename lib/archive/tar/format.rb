@@ -24,7 +24,9 @@ class Archive::Tar::Format
         path = file.path
       end
       
-      header_hash = {}
+      header_hash = {
+        type: :normal
+      }
       stat = file.stat
       
       case stat.ftype
