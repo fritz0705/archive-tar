@@ -1,5 +1,6 @@
 require "fileutils"
 require "archive/tar/new_reader"
+require "archive/tar/format"
 
 class Archive::Tar::StreamReader
   def initialize(stream, options = {})

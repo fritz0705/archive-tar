@@ -63,7 +63,7 @@ class Archive::Tar::Stat
   end
   
   def blocks
-    bytes % 512 == 0 ? bytes / 512 : (bytes + 512 - bytes % 512) / 512
+    size % 512 == 0 ? size / 512 : (size + 512 - size % 512) / 512
   end
   
   def mtime
@@ -172,5 +172,12 @@ class Archive::Tar::Stat
   
   def []=(name, value)
     self.method((name.to_s + "=").to_sym).call(value)
+  end
+  
+  def each(&block)
+    [ :path, :mode, :uid, :gid, :size, :mtime, :type, :dest, :format, :user,
+      :group, :major, :minor, :atime, :ctime ].each do |elem|
+      block.call(elem, self[elem])
+    end
   end
 end

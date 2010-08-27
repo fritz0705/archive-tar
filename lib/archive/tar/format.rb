@@ -1,3 +1,5 @@
+require "archive/tar/stat"
+
 class Archive::Tar::Format
   DEC_TYPES = {
     "0" => :normal,

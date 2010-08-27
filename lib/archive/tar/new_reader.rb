@@ -1,4 +1,5 @@
 require "fileutils"
+require "archive/tar/format"
 
 class Archive::Tar::NoSuchEntryError < RuntimeError
 end
