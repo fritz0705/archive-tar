@@ -73,42 +73,38 @@ class Archive::Tar::Format
     end
   
     def unpack_header(header)
-      result = {
-        path: header[0, 100].strip,
-        mode: header[100, 8].oct,
-        uid: header[108, 8].oct,
-        gid: header[116, 8].oct,
-        size: header[124, 12].oct,
-        mtime: Time.at(header[136, 12].oct),
-        cksum: header[148, 6].oct,
-        type: DEC_TYPES[header[156]],
-        dest: header[157, 100].strip,
-        ustar: header[257, 6] == "ustar\0",
-        gnutar: header[257, 6] == "ustar ",
-        version: header[263, 2].oct,
-        user: header[265, 32].strip,
-        group: header[297, 32].strip,
-        major: header[329, 8].oct,
-        minor: header[337, 8].oct,
-        atime: nil,
-        ctime: nil
-      }
-      result[:path] = header[345, 155].strip + result[:path] if result[:ustar]
+      new_obj = Archive::Tar::Stat.new
+    
+      new_obj.path = header[0, 100].strip
+      new_obj.mode = header[100, 8].oct
+      new_obj.uid = header[108, 8].oct
+      new_obj.gid = header[116, 8].oct
+      new_obj.size = header[124, 12].oct
+      new_obj.mtime = Time.at(header[136, 12].oct)
+      new_obj.type = DEC_TYPES[header[156]]
+      new_obj.dest = header[157, 100].strip
+      new_obj.format = header[257, 5] == "ustar" ?
+        ( header[257, 6] == "ustar " ? :gnu : :ustar ) : :other
+      new_obj.user = header[265, 32].strip
+      new_obj.group = header[297, 32].strip
+      new_obj.major = header[329, 8].strip
+      new_obj.minor = header[337, 8].strip
       
-      if result[:gnutar]
-        result[:atime] = Time.at(header[345, 12].oct)
-        result[:ctime] = Time.at(header[357, 12].oct)
+      new_obj.path = header[345, 155].strip + new_obj.path if new_obj.ustar?
+      
+      if new_obj.gnu?
+        new_obj.atime = Time.at(header[345, 12].oct)
+        new_obj.ctime = Time.at(header[357, 12].oct)
       end
       
-      result[:blocks] = blocks_for_bytes(result[:size])
-      result
+      new_obj
     end
     
     def detect_type(header)
       return :ustar if header[257, 6] == "ustar0"
       return :gnu if header[257, 6] == "ustar "
       
-      :old_style
+      :other
     end
 
     ## TODO: Implement checksum calculator
