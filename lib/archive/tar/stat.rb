@@ -1,9 +1,4 @@
 class Archive::Tar::Stat
-  def self.from_header(header)
-    
-    
-  end
-
   def initialize
     @path = ""
     @mode = 0777
