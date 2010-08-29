@@ -16,7 +16,6 @@ class Archive::Tar::Reader
       cache_size: 16,
       max_cache_size: 2 ** 19,
       generate_index: true,
-      buffer_size: 2 ** 16
     }.merge(options)
     
     if stream.is_a? String
@@ -245,7 +244,7 @@ class Archive::Tar::Reader
         
         tmp_file = File.new("#{@options[:tmp_dir]}/" + Kernel.rand(65536).to_s, "w+b")
         until reader.eof?
-          tmp_file.write(reader.read(@options[:buffer_size]))
+          tmp_file.write(reader.read(@options[:block_size]))
         end
         
         return tmp_file
