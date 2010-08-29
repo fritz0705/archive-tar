@@ -15,7 +15,8 @@ class Archive::Tar::Reader
       #      Before release of v1.4.0
       cache_size: 16,
       max_cache_size: 2 ** 19,
-      generate_index: true
+      generate_index: true,
+      buffer_size: 2 ** 16
     }.merge(options)
     
     if stream.is_a? String
@@ -238,7 +239,19 @@ class Archive::Tar::Reader
     when :bzip2
       return _tmp_file_with_pipe("/usr/bin/env bzip2 -d -c -f", file, options[:tmpdir])
     when :gzip
-      return _tmp_file_with_pipe("/usr/bin/env gzip -d -c -f", file, options[:tmpdir])
+      begin
+        require 'zlib'
+        reader = Zlib::GzipReader.new(file)
+        
+        tmp_file = File.new("#{@options[:tmp_dir]}/" + Kernel.rand(65536).to_s, "w+b")
+        until reader.eof?
+          tmp_file.write(reader.read(@options[:buffer_size]))
+        end
+        
+        return tmp_file
+      rescue LoadError
+        return _tmp_file_with_pipe("/usr/bin/env gzip -d -c -f", file, options[:tmpdir])
+      end
     when :lzma
       return _tmp_file_with_pipe("/usr/bin/env lzma -d -c -f", file, options[:tmpdir])
     when :xz
