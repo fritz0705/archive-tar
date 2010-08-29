@@ -1,5 +1,5 @@
 require "fileutils"
-require "archive/tar/new_reader"
+require "archive/tar/reader"
 require "archive/tar/format"
 
 class Archive::Tar::StreamReader

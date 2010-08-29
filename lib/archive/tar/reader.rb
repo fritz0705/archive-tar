@@ -1,69 +1,78 @@
 require "fileutils"
+require "archive/tar/format"
+
+class Archive::Tar::NoSuchEntryError < RuntimeError
+end
 
 class Archive::Tar::Reader
-  def self.detect_compression(filename)
-    return :none unless filename.include? "."
-
-    case filename.slice(Range.new(filename.rindex(".") + 1, -1))
-    when "gz", "tgz"
-      return :gzip
-    when "bz2", "tbz", "tb2"
-      return :bzip2
-    when "xz", "txz"
-      return :xz
-    when "lz", "lzma", "tlz"
-      return :lzma
-    end
-
-    return :none
-  end
-
-  def initialize(file, options = {})
+  def initialize(stream, options = {})
     options = {
-      :compression => :auto,
-      :tmpdir => "/tmp",
-      :block_size => 2 ** 19,
-      :read_limit => 2 ** 19
+      compression: :auto,
+      tmpdir: "/tmp",
+      block_size: 2 ** 19,
+      read_limit: 2 ** 19,
+      # TODO Implement cache for files
+      #      Before release of v1.4.0
+      cache_size: 16,
+      max_cache_size: 2 ** 19,
+      generate_index: true
     }.merge(options)
-
-    options[:compression] = Archive::Tar::Reader.detect_compression(file.path) if options[:compression] == :auto
-
-    case options[:compression]
-    when :none
-      @file = file
-    when :bzip2
-      @file = _tmp_file_with_pipe("/usr/bin/env bzip2 -d -c -f", file, options[:tmpdir])
-    when :gzip
-      @file = _tmp_file_with_pipe("/usr/bin/env gzip -d -c -f", file, options[:tmpdir])
-    when :lzma
-      @file = _tmp_file_with_pipe("/usr/bin/env lzma -d -c -f", file, options[:tmpdir])
-    when :xz
-      @file = _tmp_file_with_pipe("/usr/bin/env xz -d -c -f", file, options[:tmpdir])
-    else
-      @file = file
+    
+    if stream.is_a? String
+      stream = File.new(stream)
     end
     
-    @block_size = options[:block_size]
-    @read_limit = options[:read_limit]
-
-    write_index
+    @stream = _generate_compressed_stream(stream, options[:compression])
+    @options = options
+    
+    build_index if options[:generate_index]
   end
-
+  
+  def stream
+    @stream
+  end
+  
   ## Deprecated
   def file
     @file
   end
-
+  
   def index
     @index
   end
-
+  
+  def stat(file)
+    result = @index[normalize_path(file)]
+    raise NoSuchEntryError.new(file) if result == nil
+    
+    result
+  end
+  
+  def [](file)
+    stat(file)
+  end
+  
+  def has_entry?(file)
+    @index.key? file
+  end
+  
+  def entry?(file)
+    has_entry? file
+  end
+  
   def each(&block)
-    @index.each_value do |array|
-      block.call(*(array))
+    @index.each do |key, value|
+      block.call(*(value))
     end
   end
-
+  
+  def read(name)
+    header, offset = stat(name)
+    
+    @stream.seek(offset)
+    @stream.read(header[:size])
+  end
+  
   def extract_all(dest, options = {})
     options = {
       :preserve => false,
@@ -107,77 +116,69 @@ class Archive::Tar::Reader
       end
     end
   end
-
-  def [](entry)
-    @index[entry]
-  end
-
-  def has_file?(entry)
-    @index.key?(entry) || @index.key?(entry + "/")
-  end
-
-  def read(name)
-    unless @index.key? name
-      raise "No such file: #{name}"
+  
+  def build_index
+    new_index = {}
+    
+    @stream.rewind
+    
+    until @stream.eof?
+      raw_header = @stream.read(512)
+      break if raw_header == "\0" * 512
+      
+      header = Archive::Tar::Format::unpack_header(raw_header)
+      header[:path] = normalize_path(header[:path])
+      
+      unless header[:type] == :pax_global_header
+        new_index[header[:path]] = [ header, @stream.tell ]
+      end
+      
+      @stream.seek(header[:blocks] * 512, IO::SEEK_CUR)
     end
-
-    header, offset = self[name]
-    @file.seek(offset)
-
-    @file.read(header[:size])
+    
+    @index = new_index
   end
   
-  ## Deprecated
-  def export_index(file)
-    @index.each do |key, value|
-      header, offset = value
-      file.write(Archive::Tar::Format::pack_header(header))
-    end
-  end
-
   protected
-  def write_index
-    @file.rewind
-    @index = {}
-
-    until @file.eof?
-      block = @file.read(512)
-      if block == "\0" * 512
-        break
-      end
-
-      begin
-        header = Archive::Tar::Format::unpack_header(block)
-      rescue NoMethodError
-        next
-      end
-
-      @index[header[:path]] = [ header, @file.pos ] unless header[:type] == :pax_global_header
-      @file.seek(header[:blocks] * 512, IO::SEEK_CUR)
+  def normalize_path(path)
+    while path[-1] == "/"
+      path = path[0..-2]
     end
-    @file.rewind
+    
+    while path[0] == "/"
+      path = path[1..-1]
+    end
+    
+    path
+  end
+  
+  def export_to_file(offset, length, destination)
+    destination = File.new(destination, "w+b") if destination.is_a?(String)
+    
+    @stream.seek(offset)
+    
+    if length <= @options[:read_limit]
+      destination.write(@stream.read(length))
+      return true
+    end
+    
+    i = 0
+    while i < length
+      destination.write(@stream.read(@options[:block_size]))
+      i += @options[:block_size]
+    end
+    
+    true
   end
   
   def _extract(header, offset, dest, options)
-    @file.seek(offset)
-
     if !options[:override] && File::exists?(dest)
       return
     end
 
     case header[:type]
     when :normal
-      io = File.new(dest, "w+b")
-      if header[:size] > @read_limit
-        i = 0
-        while i < header[:size]
-          io.write(@file.read(@block_size))
-          i += @block_size
-        end
-      else
-        io.write(@file.read(header[:size]))
-      end
-      io.close
+      export_to_file(offset, header[:size], dest)
     when :directory
       if !File.exists? dest
         Dir.mkdir(dest)
@@ -205,8 +206,48 @@ class Archive::Tar::Reader
       File.chown(header[:uid], header[:gid], dest)
     end
   end
-
+  
   private
+  def _detect_compression(filename)
+    return :none unless filename.include? "."
+
+    case filename.slice(Range.new(filename.rindex(".") + 1, -1))
+    when "gz", "tgz"
+      return :gzip
+    when "bz2", "tbz", "tb2"
+      return :bzip2
+    when "xz", "txz"
+      return :xz
+    when "lz", "lzma", "tlz"
+      return :lzma
+    end
+
+    return :none
+  end
+  
+  def _generate_compressed_stream(stream, compression = :auto)
+    if stream.is_a?(File) && compression == :auto
+      compression = _detect_compression(stream.path)
+    elsif compression == :auto
+      compression = :none
+    end
+    
+    return stream if compression == :none
+    
+    case options[:compression]
+    when :bzip2
+      return _tmp_file_with_pipe("/usr/bin/env bzip2 -d -c -f", file, options[:tmpdir])
+    when :gzip
+      return _tmp_file_with_pipe("/usr/bin/env gzip -d -c -f", file, options[:tmpdir])
+    when :lzma
+      return _tmp_file_with_pipe("/usr/bin/env lzma -d -c -f", file, options[:tmpdir])
+    when :xz
+      return _tmp_file_with_pipe("/usr/bin/env xz -d -c -f", file, options[:tmpdir])
+    else
+      return file
+    end
+  end
+  
   def _tmp_file_with_pipe(command, io, tmpdir)
     pipe = IO.popen(command, "a+b")
     pipe.write(io.read)
@@ -217,21 +258,5 @@ class Archive::Tar::Reader
     file.close_write
 
     return file
-  end
-
-  def realpath(string)
-    real_path = []
-    string.split("/").each do |i|
-      if i == "."
-        next
-      elsif i == ".."
-        real_path = real_path[0..-2]
-        next
-      end
-
-      real_path << i
-    end
-
-    return real_path.join("/")
   end
 end
