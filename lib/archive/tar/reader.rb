@@ -11,8 +11,7 @@ class Archive::Tar::Reader
       tmpdir: "/tmp",
       block_size: 2 ** 19,
       read_limit: 2 ** 19,
-      # TODO Implement cache for files
-      #      Before release of v1.4.0
+      cache: true,
       cache_size: 16,
       max_cache_size: 2 ** 19,
       generate_index: true,
@@ -24,6 +23,8 @@ class Archive::Tar::Reader
     
     @stream = _generate_compressed_stream(stream, options[:compression])
     @options = options
+    @cache_candidates = []
+    @cache = {}
     
     build_index if options[:generate_index]
   end
@@ -66,8 +67,17 @@ class Archive::Tar::Reader
     end
   end
   
-  def read(name)
+  def read(name, no_cache = false)
     header, offset = stat(name)
+    
+    if @options[:cache] && header[:size] <= @options[:max_cache_size] && !no_cache
+      @cache_candidates << name
+      rebuild_cache
+    end
+    
+    if @cache.key? name && !no_cache
+      return @cache[name]
+    end
     
     @stream.seek(offset)
     @stream.read(header[:size])
@@ -140,6 +150,32 @@ class Archive::Tar::Reader
   end
   
   protected
+  def rebuild_cache
+    return nil unless @options[:cache]
+    
+    cache_count = {}
+    @cache_candidates.each do |candidate|
+      cache_count[candidate] = 0 unless cache_count.key? candidate
+      cache_count[candidate] += 1
+    end
+    cache_count_sorted = cache_count.sort do |pair_1, pair_2|
+      (pair_1[1] <=> pair_2[1]) * -1
+    end
+    
+    puts cache_count_sorted
+    
+    @cache = {}
+    i = 0
+    cache_count_sorted.each do |tupel|
+      if i >= @options[:cache_size]
+        break
+      end
+      
+      @cache[tupel[0]] = read(tupel[0], true)
+      i += 1
+    end
+  end
+  
   def normalize_path(path)
     while path[-1] == "/"
       path = path[0..-2]
@@ -152,8 +188,18 @@ class Archive::Tar::Reader
     path
   end
   
-  def export_to_file(offset, length, destination)
+  def export_to_file(offset, length, source, destination)
     destination = File.new(destination, "w+b") if destination.is_a?(String)
+    
+    if @options[:max_cache_size] >= length && @options[:cache]
+      @cache_candidates << source
+      rebuild_cache
+    end
+    
+    if @cache.key? source
+      destination.write(@cache[source])
+      return true
+    end
     
     @stream.seek(offset)
     
@@ -178,7 +224,7 @@ class Archive::Tar::Reader
 
     case header[:type]
     when :normal
-      export_to_file(offset, header[:size], dest)
+      export_to_file(offset, header[:size], header[:path], dest)
     when :directory
       if !File.exists? dest
         Dir.mkdir(dest)
