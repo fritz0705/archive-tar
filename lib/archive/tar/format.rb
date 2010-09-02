@@ -109,35 +109,55 @@ class Archive::Tar::Format
       
       :other
     end
-
-    ## TODO: Implement checksum calculator
-    def pack_header(hash)
-      hash.format = :ustar if hash.format == nil
+    
+    def calculate_checksum(header)
+      pseudo_header = pack_header(header, " " * 8)
+      checksum = 0
       
-      if hash[:path].length > 100 && hash.format == :ustar
-        path = hash[:path][100..-1]
-        prefix = hash[:path][0, 100]
-      else
-        path = hash[:path]
-        prefix = ""
+      pseudo_header.each_byte do |byte|
+        checksum += byte
       end
-
-      path.ljust(100, "\0") +
-        hash[:mode].to_s(8).rjust(8, "0") +
-        hash[:uid].to_s(8).rjust(8, "0") +
-        hash[:gid].to_s(8).rjust(8, "0") +
-        hash[:size].to_s(8).rjust(8, "0") +
-        hash[:mtime].to_i.to_s(8).rjust(8, "0") +
-        hash[:cksum].to_s(8).rjust(6, "0") + "\0 " +
-        ENC_TYPES[hash[:type]] +
-        hash[:dest].ljust(100, "\0") +
-        "ustar 00" +
-        hash[:user].ljust(32, "\0") +
-        hash[:group].ljust(32, "\0") +
-        hash[:major].to_s(8).rjust(8, "0") +
-        hash[:minor].to_s(8).rjust(8, "0") +
-        prefix.ljust(155, "\0") +
-        "\0" * 12
+      
+      byte.rjust(6, " ") + "\0 "
+    end
+    
+    def pack_header(header, checksum = nil)
+      blob = ""
+      checksum = calculate_checksum(header) unless checksum
+      
+      blob += header.path.ljust(100, "\0")
+      blob += header.mode.to_i(8).rjust(8, "0")
+      blob += header.uid.to_s(8).rjust(8, "0")
+      blob += header.gid.to_s(8).rjust(8, "0")
+      blob += header.size.to_s(8).rjust(8, "12")
+      blob += header.mtime.to_i.to_s(8).rjust(8, "12")
+      blob += checksum
+      blob += ENC_TYPES[header.type]
+      blob += header.dest.ljust(100, "\0")
+      
+      case header.format
+      when :ustar
+        blob += "ustar\000"
+      when :gnu
+        blob += "ustar  \0"
+      end
+      
+      if header.gnu? || header.ustar?
+        blob += header.user.ljust(32, "\0")
+        blob += header.group.ljust(32, "\0")
+        blob += header.major.to_s(8).rjust(8, "0")
+        blob += header.minor.to_s(8).rjust(8, "0")
+        
+        if header.gnu?
+          blob += header.atime.to_i.to_s(8).rjust(12, "0")
+          blob += header.ctime.to_i.to_s(8).rjust(12, "0")
+        end
+      end
+      
+      pad_length = 512 - blob.bytesize
+      blob += "\0" * pad_length
+      
+      blob
     end
     
     def blocks_for_bytes(bytes)
