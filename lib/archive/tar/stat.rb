@@ -16,6 +16,45 @@ class Archive::Tar::Stat
     @major = 0
     @minor = 0
   end
+
+  def self.from_file(file)
+    file = File.new(file.to_s) unless file.is_a? File
+    stat = Archive::Tar::Stat.new
+    
+    file_stat = file.stat
+    path = file.path
+    
+    stat.path = path
+    stat.mode = file_stat.mode
+    stat.uid = file_stat.uid
+    stat.gid = file_stat.gid
+    stat.size = file_stat.size
+    stat.mtime = file_stat.mtime
+    
+    if file_stat.blockdev?
+      stat.type = :block
+    elsif file_stat.chardev?
+      stat.type = :character
+    elsif file_stat.directory?
+      stat.type = :directory
+    elsif file_stat.pipe?
+      stat.type = :fifo
+    elsif file_stat.symlink?
+      stat.type = :symbolic
+    else
+      stat.type = :normal
+    end
+    
+    stat.dest = File.readlink(path) if stat.type == :symbolic
+    stat.format = :ustar
+    stat.atime = file_stat.atime
+    stat.ctime = file_stat.ctime
+    
+    stat.major = file_stat.dev_major
+    stat.minor = file_stat.dev_minor
+    
+    stat
+  end
   
   def path
     @path

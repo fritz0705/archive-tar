@@ -1,11 +1,13 @@
 class Archive::Tar::Writer
   def initialize(file, options = {})
     options = {
-      :block_size => 2 ** 19
+      :block_size => 2 ** 19,
+      :format = :gnu
     }.merge(options)
 
     @block_size = options[:block_size]
     @file = file
+    @format = options[:format]
   end
   
   def add_entry(header, content)
@@ -21,8 +23,10 @@ class Archive::Tar::Writer
       file = File.new(file)
     end
   
-    header_hash = Archive::Tar::Format::header_for_file(file, path)
-    header = Archive::Tar::Format::pack_header(header_hash)
+    stat = Archive::Tar::Stat::from_file(file)
+    stat.path = path
+    stat.format = @format
+    header = Archive::Tar::Format::pack_header(stat)
     @file.write(header)
     file.rewind
     
