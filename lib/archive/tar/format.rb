@@ -61,6 +61,7 @@ class Archive::Tar::Format
       header_hash[:major] = 0
       header_hash[:minor] = 0
       header_hash[:dest] = ""
+      header_hash
       
       if stat.chardev? || stat.blockdev?
         header_hash[:major] = stat.rdev_major
@@ -111,7 +112,9 @@ class Archive::Tar::Format
 
     ## TODO: Implement checksum calculator
     def pack_header(hash)
-      if hash[:path].length > 100
+      hash.format = :ustar if hash.format == nil
+      
+      if hash[:path].length > 100 && hash.format == :ustar
         path = hash[:path][100..-1]
         prefix = hash[:path][0, 100]
       else
