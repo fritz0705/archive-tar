@@ -1,3 +1,6 @@
+require "archive/tar/stat.rb"
+require "archive/tar/format.rb"
+
 class Archive::Tar::Writer
   def initialize(file, options = {})
     options = {
