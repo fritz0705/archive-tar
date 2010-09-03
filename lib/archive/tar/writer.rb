@@ -5,7 +5,7 @@ class Archive::Tar::Writer
   def initialize(file, options = {})
     options = {
       :block_size => 2 ** 19,
-      :format = :gnu
+      :format => :gnu
     }.merge(options)
 
     @block_size = options[:block_size]
