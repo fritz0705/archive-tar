@@ -112,7 +112,7 @@ class Archive::Tar::Reader
       :override => false
     }.merge(options)
     unless @index.key? source
-      raise "No such file: #{source}"
+      raise NoSuchEntryError.new(source)
     end
 
     header, offset = @index[source]
