@@ -6,6 +6,8 @@ class Archive::Tar::StreamReader < Archive::Tar::Reader
       block_size: 2 ** 19,
       reload_time: 32
     }.merge(options)
+    
+    stream = IO.new(stream) if io.is_a? Integer
   
     if options[:compression] == :auto
       raise "Automatic compression is not available for streams"
