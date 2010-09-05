@@ -45,15 +45,12 @@ class Archive::Tar::StreamReader < Archive::Tar::Reader
     Thread.new do
       i = 0
     
-      puts "Copy to tmp file..."
       until stream.eof?
         read = stream.read(options[:block_size])
         tmp_file.write(read)
         self.build_index if i % options[:reload_time] == 0
-        puts "Rebuild" if i % options[:reload_time] == 0
         i += 1
       end
-      puts "Done!"
       
       self.build_index
     end
