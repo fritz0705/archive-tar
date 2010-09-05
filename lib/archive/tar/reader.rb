@@ -185,7 +185,7 @@ class Archive::Tar::Reader
       path = path[1..-1]
     end
     
-    path
+    path.gsub(/[\/]{2,}/, "/")
   end
   
   def export_to_file(offset, length, source, destination)
