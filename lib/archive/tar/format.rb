@@ -88,7 +88,7 @@ class Archive::Tar::Format
         checksum += byte
       end
       
-      byte.rjust(6, " ") + "\0 "
+      checksum.to_s.rjust(6, " ") + "\0 "
     end
     
     def pack_header(header, checksum = nil)
@@ -96,7 +96,7 @@ class Archive::Tar::Format
       checksum = calculate_checksum(header) unless checksum
       
       blob += header.path.ljust(100, "\0")
-      blob += header.mode.to_i(8).rjust(8, "0")
+      blob += header.mode.to_s(8).rjust(8, "0")
       blob += header.uid.to_s(8).rjust(8, "0")
       blob += header.gid.to_s(8).rjust(8, "0")
       blob += header.size.to_s(8).rjust(8, "12")
