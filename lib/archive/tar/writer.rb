@@ -30,6 +30,8 @@ require "archive/tar/stat.rb"
 require "archive/tar/format.rb"
 
 class Archive::Tar::Writer
+  include Archive::Tar
+
   def initialize(file, options = {})
     options = {
       :block_size => 2 ** 19,
@@ -98,17 +100,5 @@ class Archive::Tar::Writer
   
   def close()
     @file.write("\0" * 1024)
-  end
-  
-  def normalize_path(path)
-    while path[-1] == "/"
-      path = path[0..-2]
-    end
-    
-    while path[0] == "/"
-      path = path[1..-1]
-    end
-    
-    path.gsub(/[\/]{2,}/, "/")
   end
 end

@@ -33,6 +33,8 @@ class Archive::Tar::NoSuchEntryError < RuntimeError
 end
 
 class Archive::Tar::Reader
+  include Archive::Tar
+
   def initialize(stream, options = {})
     options = {
       compression: :auto,
@@ -202,18 +204,6 @@ class Archive::Tar::Reader
       @cache[tupel[0]] = read(tupel[0], true)
       i += 1
     end
-  end
-  
-  def normalize_path(path)
-    while path[-1] == "/"
-      path = path[0..-2]
-    end
-    
-    while path[0] == "/"
-      path = path[1..-1]
-    end
-    
-    path.gsub(/[\/]{2,}/, "/")
   end
   
   def export_to_file(offset, length, source, destination)

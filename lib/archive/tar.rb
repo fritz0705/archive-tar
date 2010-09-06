@@ -28,6 +28,17 @@ or implied, of Fritz Conrad Grimpen.
 
 module Archive
   module Tar
+    def normalize_path(path)
+      while path[-1] == "/"
+        path = path[0..-2]
+      end
+      
+      while path[0] == "/"
+        path = path[1..-1]
+      end
+      
+      path.gsub(/[\/]{2,}/, "/")
+    end
   end
 end
 
