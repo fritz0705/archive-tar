@@ -43,6 +43,7 @@ class Archive::Tar::Stat
     @ctime = Time.at(0)
     @major = 0
     @minor = 0
+    @checksum = 0
   end
 
   def self.from_file(file)
@@ -61,14 +62,19 @@ class Archive::Tar::Stat
     
     if file_stat.blockdev?
       stat.type = :block
+      stat.size = 0
     elsif file_stat.chardev?
       stat.type = :character
+      stat.size = 0
     elsif file_stat.directory?
       stat.type = :directory
+      stat.size = 0
     elsif file_stat.pipe?
       stat.type = :fifo
+      stat.size = 0
     elsif file_stat.symlink?
       stat.type = :symbolic
+      stat.size = 0
     else
       stat.type = :normal
     end
@@ -78,10 +84,18 @@ class Archive::Tar::Stat
     stat.atime = file_stat.atime
     stat.ctime = file_stat.ctime
     
-    stat.major = file_stat.dev_major
-    stat.minor = file_stat.dev_minor
+    stat.major = file_stat.rdev_major
+    stat.minor = file_stat.rdev_minor
     
     stat
+  end
+  
+  def checksum
+    @checksum
+  end
+  
+  def checksum=(new_checksum)
+    @checksum = new_checksum
   end
   
   def path
@@ -238,7 +252,7 @@ class Archive::Tar::Stat
   
   def each(&block)
     [ :path, :mode, :uid, :gid, :size, :mtime, :type, :dest, :format, :user,
-      :group, :major, :minor, :atime, :ctime ].each do |elem|
+      :group, :major, :minor, :atime, :ctime, :checksum ].each do |elem|
       block.call(elem, self[elem])
     end
   end

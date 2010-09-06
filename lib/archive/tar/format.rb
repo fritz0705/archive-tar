@@ -54,6 +54,7 @@ class Archive::Tar::Format
       new_obj.gid = header[116, 8].oct
       new_obj.size = header[124, 12].oct
       new_obj.mtime = Time.at(header[136, 12].oct)
+      new_obj.checksum = header[148, 8].oct
       new_obj.type = DEC_TYPES[header[156]]
       new_obj.dest = header[157, 100].strip
       new_obj.format = header[257, 5] == "ustar" ?
@@ -81,27 +82,25 @@ class Archive::Tar::Format
     end
     
     def calculate_checksum(header)
-      pseudo_header = pack_header(header, " " * 8)
       checksum = 0
       
-      pseudo_header.each_byte do |byte|
+      header.each_byte do |byte|
         checksum += byte
       end
       
-      checksum.to_s.rjust(6, " ") + "\0 "
+      checksum.to_s(8).rjust(6, " ") + "\0 "
     end
     
-    def pack_header(header, checksum = nil)
+    def pack_header(header)
       blob = ""
-      checksum = calculate_checksum(header) unless checksum
       
       blob += header.path.ljust(100, "\0")
       blob += header.mode.to_s(8).rjust(8, "0")
       blob += header.uid.to_s(8).rjust(8, "0")
       blob += header.gid.to_s(8).rjust(8, "0")
-      blob += header.size.to_s(8).rjust(8, "12")
-      blob += header.mtime.to_i.to_s(8).rjust(8, "12")
-      blob += checksum
+      blob += header.size.to_s(8).rjust(12, "0")
+      blob += header.mtime.to_i.to_s(8).rjust(12, "0")
+      blob += " " * 8
       blob += ENC_TYPES[header.type]
       blob += header.dest.ljust(100, "\0")
       
@@ -126,6 +125,8 @@ class Archive::Tar::Format
       
       pad_length = 512 - blob.bytesize
       blob += "\0" * pad_length
+      
+      blob[148, 8] = calculate_checksum(blob)
       
       blob
     end
