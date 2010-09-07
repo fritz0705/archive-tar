@@ -310,15 +310,17 @@ class Archive::Tar::Reader
     end
     
     io = IO::popen("/usr/bin/env #{programs[compression]}", "a+b")
-    new_file = File.open("#{@options[:tmp_dir]}/#{rand(500512)}", "w+b")
+    new_file = File.open("#{@options[:tmpdir]}/#{rand(500512)}", "w+b")
     Thread.new do
       until stream.eof?
-        io.write(stream.read(@options[:block_size])
+        io.write(stream.read(@options[:block_size]))
       end
+      
+      io.close_write
     end
     
     until io.eof?
-      new_file.write(io.read(@options[:block_size])
+      new_file.write(io.read(@options[:block_size]))
     end
     
     new_file
