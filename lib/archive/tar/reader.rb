@@ -298,6 +298,29 @@ class Archive::Tar::Reader
       end
     end
     
+    programs = {
+      :gzip => "gzip -d -c -f",
+      :bzip2 => "bzip2 -d -c -f",
+      :lzma => "lzma -d -c -f",
+      :xz => "xz -d -c -f"
+    }
     
+    unless programs.key? compression
+      return stream
+    end
+    
+    io = IO::popen("/usr/bin/env #{programs[compression]}", "a+b")
+    new_file = File.open("#{@options[:tmp_dir]}/#{rand(500512)}", "w+b")
+    Thread.new do
+      until stream.eof?
+        io.write(stream.read(@options[:block_size])
+      end
+    end
+    
+    until io.eof?
+      new_file.write(io.read(@options[:block_size])
+    end
+    
+    new_file
   end
 end
