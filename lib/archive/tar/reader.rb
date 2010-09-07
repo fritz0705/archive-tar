@@ -51,8 +51,8 @@ class Archive::Tar::Reader
       stream = File.new(stream)
     end
     
-    @stream = _generate_compressed_stream(stream, options[:compression])
     @options = options
+    @stream = _generate_compressed_stream(stream, options[:compression])
     @cache_candidates = []
     @cache = {}
     
@@ -289,54 +289,15 @@ class Archive::Tar::Reader
     return :none
   end
   
-  def _generate_compressed_stream(stream, compression = :auto)
-    if stream.is_a?(File) && compression == :auto
-      compression = _detect_compression(stream.path)
-    elsif compression == :auto
-      compression = :none
-    end
-    
-    return stream if compression == :none
-    
-    case options[:compression]
-    when :bzip2
-      return _tmp_file_with_pipe("/usr/bin/env bzip2 -d -c -f", file, options[:tmpdir])
-    when :gzip
-      begin
-        require 'zlib'
-        reader = Zlib::GzipReader.new(file)
-        
-        tmp_file = File.new("#{@options[:tmp_dir]}/" + Kernel.rand(65536).to_s, "w+b")
-        until reader.eof?
-          tmp_file.write(reader.read(@options[:block_size]))
-        end
-        
-        return tmp_file
-      rescue LoadError
-        return _tmp_file_with_pipe("/usr/bin/env gzip -d -c -f", file, options[:tmpdir])
+  def _generate_compressed_stream(stream, compression)
+    if compression == :auto
+      if stream.is_a? File
+        compression = _detect_compression(stream.path)
+      else
+        compression = :none
       end
-    when :lzma
-      return _tmp_file_with_pipe("/usr/bin/env lzma -d -c -f", file, options[:tmpdir])
-    when :xz
-      return _tmp_file_with_pipe("/usr/bin/env xz -d -c -f", file, options[:tmpdir])
-    else
-      return file
-    end
-  end
-  
-  def _tmp_file_with_pipe(command, io, tmpdir)
-    pipe = IO.popen(command, "a+b")
-    pipe.write(io.read)
-    pipe.close_write
-    
-    file = File.new(File.join(tmpdir, rand(500512) + ".atmp"), "rb")
-    until pipe.eof?
-      file.write(pipe.read(@options[:block_size])
     end
     
-    pipe.close
-    file.close_write
-
-    return file
+    
   end
 end
