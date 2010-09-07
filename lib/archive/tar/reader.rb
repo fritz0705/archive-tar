@@ -328,8 +328,12 @@ class Archive::Tar::Reader
     pipe = IO.popen(command, "a+b")
     pipe.write(io.read)
     pipe.close_write
+    
     file = File.new(File.join(tmpdir, rand(500512) + ".atmp"), "rb")
-    file.write(pipe.read)
+    until pipe.eof?
+      file.write(pipe.read(@options[:block_size])
+    end
+    
     pipe.close
     file.close_write
 
