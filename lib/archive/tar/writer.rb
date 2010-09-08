@@ -32,23 +32,23 @@ require "archive/tar/format.rb"
 class Archive::Tar::Writer
   include Archive::Tar
 
-  def initialize(file, options = {})
+  def initialize(stream, options = {})
     options = {
       :block_size => 2 ** 19,
       :format => :gnu
     }.merge(options)
 
     @block_size = options[:block_size]
-    @file = file
+    @stream = file
     @format = options[:format]
   end
   
   def add_entry(header, content)
-    @file.write(Archive::Tar::Format::pack_header(header))
+    @stream.write(Archive::Tar::Format::pack_header(header))
     
     content = content[0, header[:size]]
     real_size = Archive::Tar::Format::blocks_for_bytes(header[:size]) * 512
-    @file.write(content.ljust(real_size, "\0"))
+    @stream.write(content.ljust(real_size, "\0"))
   end
   
   def add_file(file, path = nil)
@@ -61,16 +61,16 @@ class Archive::Tar::Writer
     stat.format = @format
     
     header = Archive::Tar::Format::pack_header(stat)
-    @file.write(header)
+    @stream.write(header)
     file.rewind
     
     if stat.type == :normal
       num_of_nils = stat.blocks * 512 - stat.size
       until file.eof?
-        @file.write(file.read(@block_size))
+        @stream.write(file.read(@block_size))
       end
       
-      @file.write("\0" * num_of_nils)
+      @stream.write("\0" * num_of_nils)
     end
   end
   
@@ -99,6 +99,6 @@ class Archive::Tar::Writer
   end
   
   def close()
-    @file.write("\0" * 1024)
+    @stream.write("\0" * 1024)
   end
 end
