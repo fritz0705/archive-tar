@@ -29,6 +29,8 @@ or implied, of Fritz Conrad Grimpen.
 module Archive
   module Tar
     def normalize_path(path)
+      path = path.gsub("\\", "/")
+    
       while path[-1] == "/"
         path = path[0..-2]
       end
@@ -39,10 +41,24 @@ module Archive
       
       path.gsub(/[\/]{2,}/, "/")
     end
+    
+    def join_path(*files)
+      absolute = files[0][0] == "/"
+      files = files.map do |element|
+        normalize_path element
+      end
+      
+      new_path = files.join("/")
+      new_path = "/" + new_path if absolute
+      
+      new_path
+    end
   end
 end
 
 require "archive/tar/format.rb"
 require "archive/tar/reader.rb"
 require "archive/tar/writer.rb"
+require "archive/tar/extended_writer.rb"
+require "archive/tar/stat.rb"
 require "archive/tar/stream_reader.rb"
