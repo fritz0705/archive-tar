@@ -30,6 +30,7 @@ require "archive/tar/stat"
 
 class Archive::Tar::Format
   DEC_TYPES = {
+    "\0" => :normal,
     "0" => :normal,
     "1" => :link,
     "2" => :symbolic,
