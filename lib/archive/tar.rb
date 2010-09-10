@@ -59,6 +59,5 @@ end
 require "archive/tar/format.rb"
 require "archive/tar/reader.rb"
 require "archive/tar/writer.rb"
-require "archive/tar/extended_writer.rb"
 require "archive/tar/stat.rb"
 require "archive/tar/stream_reader.rb"
