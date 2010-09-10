@@ -45,10 +45,18 @@ class Archive::Tar::Format
   ENC_TYPES = DEC_TYPES.invert
   
   class << self
+    def strip_nuls(string)
+      until string[-1] != "\0"
+        string = string[0..-2]
+      end
+      
+      string
+    end
+  
     def unpack_header(header)
       new_obj = Archive::Tar::Stat.new
     
-      new_obj.path = header[0, 100].strip
+      new_obj.path = strip_nuls(header[0, 100])
       new_obj.mode = header[100, 8].oct
       new_obj.uid = header[108, 8].oct
       new_obj.gid = header[116, 8].oct
@@ -56,13 +64,13 @@ class Archive::Tar::Format
       new_obj.mtime = Time.at(header[136, 12].oct)
       new_obj.checksum = header[148, 8].oct
       new_obj.type = DEC_TYPES[header[156]]
-      new_obj.dest = header[157, 100].strip
+      new_obj.dest = strip_nuls(header[157, 100])
       new_obj.format = header[257, 5] == "ustar" ?
         ( header[257, 6] == "ustar " ? :gnu : :ustar ) : :other
-      new_obj.user = header[265, 32].strip
-      new_obj.group = header[297, 32].strip
-      new_obj.major = header[329, 8].strip
-      new_obj.minor = header[337, 8].strip
+      new_obj.user = strip_nuls(header[265, 32])
+      new_obj.group = strip_nuls(header[297, 32])
+      new_obj.major = header[329, 8].oct
+      new_obj.minor = header[337, 8].oct
       
       new_obj.path = header[345, 155].strip + new_obj.path if new_obj.ustar?
       
