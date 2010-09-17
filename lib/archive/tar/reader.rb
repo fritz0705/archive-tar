@@ -137,9 +137,9 @@ class Archive::Tar::Reader
 
   def extract(source, dest, options = {})
     options = {
-      :recursive => true,
-      :preserve => false,
-      :override => false
+      recursive: true,
+      preserve: false,
+      override: false
     }.merge(options)
     unless @index.key? source
       raise NoSuchEntryError.new(source)
@@ -299,10 +299,10 @@ class Archive::Tar::Reader
     end
     
     programs = {
-      :gzip => "gzip -d -c -f",
-      :bzip2 => "bzip2 -d -c -f",
-      :lzma => "lzma -d -c -f",
-      :xz => "xz -d -c -f"
+      gzip: "gzip -d -c -f",
+      bzip2: "bzip2 -d -c -f",
+      lzma: "lzma -d -c -f",
+      xz: "xz -d -c -f"
     }
     
     unless programs.key? compression

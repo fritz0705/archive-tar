@@ -37,8 +37,8 @@ class Archive::Tar::Writer
   
   def initialize(stream, options = {})
     options = {
-      :block_size => 2 ** 19,
-      :format => :gnu
+      block_size: 2 ** 19,
+      format: :gnu
     }.merge(options)
     
     @options = options
