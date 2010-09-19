@@ -35,7 +35,7 @@ end
 class Archive::Tar::Writer
   include Archive::Tar
   
-  def initialize(stream, options = {})
+  def initialize(stream, *options)
     options = {
       block_size: 2 ** 19,
       format: :gnu
@@ -82,7 +82,7 @@ class Archive::Tar::Writer
     end
   end
   
-  def add_directory(dir, options = {})
+  def add_directory(dir, *options)
     options = {
       full_path: false,
       recursive: true,

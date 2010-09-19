@@ -35,7 +35,7 @@ end
 class Archive::Tar::Reader
   include Archive::Tar
 
-  def initialize(stream, options = {})
+  def initialize(stream, *options)
     options = {
       compression: :auto,
       tmpdir: "/tmp",
@@ -113,7 +113,7 @@ class Archive::Tar::Reader
     @stream.read(header[:size])
   end
   
-  def extract_all(dest, options = {})
+  def extract_all(dest, *options)
     options = {
       :preserve => false,
       :override => false
@@ -135,7 +135,7 @@ class Archive::Tar::Reader
     end
   end
 
-  def extract(source, dest, options = {})
+  def extract(source, dest, *options)
     options = {
       recursive: true,
       preserve: false,
@@ -235,7 +235,7 @@ class Archive::Tar::Reader
     true
   end
   
-  def _extract(header, offset, dest, options)
+  def _extract(header, offset, dest, *options)
     if !options[:override] && File::exists?(dest)
       return
     end

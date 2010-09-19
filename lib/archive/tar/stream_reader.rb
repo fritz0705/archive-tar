@@ -29,7 +29,7 @@ or implied, of Fritz Conrad Grimpen.
 require "archive/tar/reader"
 
 class Archive::Tar::StreamReader < Archive::Tar::Reader
-  def initialize(stream, options = {})
+  def initialize(stream, *options)
     options = {
       block_size: 2 ** 19,
       reload_time: 32
@@ -55,6 +55,6 @@ class Archive::Tar::StreamReader < Archive::Tar::Reader
       self.build_index
     end
     
-    super(tmp_file, options)
+    super(tmp_file, *options)
   end
 end
