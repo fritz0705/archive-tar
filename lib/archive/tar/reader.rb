@@ -45,6 +45,7 @@ class Archive::Tar::Reader
       cache_size: 16,
       max_cache_size: 2 ** 19,
       generate_index: true,
+      use_normalized_paths: true,
     }.merge(options)
     
     if stream.is_a? String
@@ -73,7 +74,11 @@ class Archive::Tar::Reader
   end
   
   def stat(file, exception = true)
-    result = @index[normalize_path(file)]
+    if @options[:use_normalized_paths]
+      result = @index[normalize_path(file)]
+    else
+      result = @index[file]
+    end
     raise NoSuchEntryError.new(file) if result == nil && exception
     
     result
@@ -167,7 +172,9 @@ class Archive::Tar::Reader
       break if raw_header == "\0" * 512
       
       header = Archive::Tar::Format::unpack_header(raw_header)
-      header[:path] = normalize_path(header[:path])
+      if @options[:use_normalized_paths]
+        header[:path] = normalize_path(header[:path])
+      end
       
       unless header[:type] == :pax_global_header
         new_index[header[:path]] = [ header, @stream.tell ]
