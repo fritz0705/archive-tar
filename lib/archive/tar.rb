@@ -39,7 +39,28 @@ module Archive
         path = path[1..-1]
       end
       
-      path.gsub(/[\/]{2,}/, "/")
+      solve_path(path.gsub(/[\/]{2,}/, "/"))
+    end
+    
+    def solve_path(path)
+      path_parts = path.split("/")
+      realpath = []
+      
+      path_parts.each do |i|
+        if i == "."
+          next
+        end
+        
+        if i == ".."
+          realpath = realpath[1..-2]
+          realpath = [] if realpath == nil
+          next
+        end
+        
+        realpath << i
+      end
+      
+      realpath.join("/")
     end
     
     def join_path(*files)
