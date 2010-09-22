@@ -139,5 +139,9 @@ class Archive::Tar::Format
       
       blob
     end
+    
+    def blocks_for_bytes(bytes)
+      bytes % 512 == 0 ? bytes / 512 : (bytes + 512 - bytes % 512) / 512
+    end
   end
 end
