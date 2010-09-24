@@ -21,9 +21,9 @@ THE SOFTWARE.
 =end
 
 module Archive
-  VERSION = "1.4.0-git"
-  
   module Tar
+    VERSION = "1.4.0-git"
+    
     def normalize_path(path)
       path = path.gsub("\\", "/")
     
