@@ -27,6 +27,8 @@ or implied, of Fritz Conrad Grimpen.
 =end
 
 module Archive
+  VERSION = "1.4.0-git"
+  
   module Tar
     def normalize_path(path)
       path = path.gsub("\\", "/")
