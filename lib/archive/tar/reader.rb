@@ -112,6 +112,7 @@ class Archive::Tar::Reader
     @stream.read(header[:size])
   end
   
+  # Extract all files to /dest/ directory
   def extract_all(dest, options = {})
     options = {
       :preserve => false,
@@ -134,6 +135,7 @@ class Archive::Tar::Reader
     end
   end
 
+  # Extract file from /source/ to /dest/
   def extract(source, dest, options = {})
     options = {
       recursive: true,
@@ -156,6 +158,7 @@ class Archive::Tar::Reader
     end
   end
   
+  # Build new index of files
   def build_index
     new_index = {}
     

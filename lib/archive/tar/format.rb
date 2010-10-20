@@ -40,6 +40,7 @@ class Archive::Tar::Format
   ENC_TYPES = DEC_TYPES.invert
   
   class << self
+    # Remove all NUL bytes at the end of a string
     def strip_nuls(string)
       until string[-1] != "\0"
         string = string[0..-2]
@@ -48,6 +49,7 @@ class Archive::Tar::Format
       string
     end
   
+    # Transform tar header to Stat
     def unpack_header(header)
       new_obj = Archive::Tar::Stat.new
     
@@ -77,6 +79,7 @@ class Archive::Tar::Format
       new_obj
     end
     
+    # Detect type of tar file by header
     def detect_type(header)
       return :ustar if header[257, 6] == "ustar0"
       return :gnu if header[257, 6] == "ustar "
@@ -84,6 +87,7 @@ class Archive::Tar::Format
       :other
     end
     
+    # Generate checksum with header
     def calculate_checksum(header)
       checksum = 0
       
@@ -94,6 +98,7 @@ class Archive::Tar::Format
       checksum.to_s(8).rjust(6, " ") + "\0 "
     end
     
+    # Pack header from Stat
     def pack_header(header)
       blob = ""
       
@@ -134,6 +139,7 @@ class Archive::Tar::Format
       blob
     end
     
+    # Calculate quantity of blocks
     def blocks_for_bytes(bytes)
       bytes % 512 == 0 ? bytes / 512 : (bytes + 512 - bytes % 512) / 512
     end
