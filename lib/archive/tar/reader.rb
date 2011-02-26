@@ -58,11 +58,6 @@ class Archive::Tar::Reader
     @stream
   end
   
-  ## Deprecated
-  def file
-    @file
-  end
-  
   def index
     @index
   end
