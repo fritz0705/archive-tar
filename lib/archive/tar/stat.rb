@@ -21,6 +21,12 @@ THE SOFTWARE.
 =end
 
 class Archive::Tar::Stat
+  attr_accessor :checksum, :path, :mode, :uid, :gid, :size, :mtime, :type,
+    :dest, :format, :user, :group, :atime, :ctime, :major, :minor
+  attr_accessor :path
+  attr_accessor :mode
+  attr_a
+
   def initialize
     @path = ""
     @mode = 0777
@@ -84,88 +90,8 @@ class Archive::Tar::Stat
     stat
   end
   
-  def checksum
-    @checksum
-  end
-  
-  def checksum=(new_checksum)
-    @checksum = new_checksum
-  end
-  
-  def path
-    @path
-  end
-  
-  def path=(new_path)
-    @path = new_path
-  end
-  
-  def mode
-    @mode
-  end
-  
-  def mode=(new_mode)
-    @mode = new_mode
-  end
-  
-  def uid
-    @uid
-  end
-  
-  def uid=(new_uid)
-    @uid = new_uid
-  end
-  
-  def gid
-    @gid
-  end
-  
-  def gid=(new_gid)
-    @gid = new_gid
-  end
-  
-  def size
-    @size
-  end
-  
-  def size=(new_size)
-    @size = new_size
-  end
-  
   def blocks
     size % 512 == 0 ? size / 512 : (size + 512 - size % 512) / 512
-  end
-  
-  def mtime
-    @mtime
-  end
-  
-  def mtime=(new_mtime)
-    @mtime = new_mtime
-  end
-  
-  def type
-    @type
-  end
-  
-  def type=(new_type)
-    @type = new_type
-  end
-  
-  def dest
-    @dest
-  end
-  
-  def dest=(new_dest)
-    @dest = new_dest
-  end
-  
-  def format
-    @format
-  end
-  
-  def format=(new_format)
-    @format = new_format
   end
   
   def is_ustar?
@@ -186,54 +112,6 @@ class Archive::Tar::Stat
   
   def version
     "00"
-  end
-  
-  def user
-    @user
-  end
-  
-  def user=(new_user)
-    @user = new_user
-  end
-  
-  def group
-    @group
-  end
-  
-  def group=(new_group)
-    @group = new_group
-  end
-  
-  def major
-    @major
-  end
-  
-  def major=(new_major)
-    @major = new_major
-  end
-  
-  def minor
-    @minor
-  end
-  
-  def minor=(new_minor)
-    @minor = new_minor
-  end
-  
-  def atime
-    @atime
-  end
-  
-  def atime=(new_atime)
-    @atime = new_atime
-  end
-  
-  def ctime
-    @ctime
-  end
-  
-  def ctime=(new_ctime)
-    @ctime = new_ctime
   end
   
   def [](name)

@@ -3,4 +3,3 @@
 archive-tar is a library which implements read-write-access for tar-archives. It
 does not uses any third-party-scripts and is basing on Ruby 1.9.
 
-For further information look at http://fritz-grimpen.de
