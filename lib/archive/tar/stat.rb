@@ -25,7 +25,6 @@ class Archive::Tar::Stat
     :dest, :format, :user, :group, :atime, :ctime, :major, :minor
   attr_accessor :path
   attr_accessor :mode
-  attr_a
 
   def initialize
     @path = ""

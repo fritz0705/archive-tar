@@ -22,7 +22,7 @@ THE SOFTWARE.
 
 module Archive
   module Tar
-    VERSION = "1.4.0"
+    VERSION = "1.5.0"
     
     def normalize_path(path)
       path = path.gsub("\\", "/")
